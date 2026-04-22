@@ -10,7 +10,7 @@
     --bg: #080b10;
     --surface: #0e1219;
     --border: #1c2333;
-    --accent: #ff2a2a; /* Vermelho MultiHub */
+    --accent: #ff2a2a; 
     --accent2: #ff4d4d;
     --green: #00ff88;
     --red: #ff3b5c;
@@ -187,7 +187,7 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     overflow: hidden;
-    margin-bottom: 5rem; /* Espaço para o botão flutuante */
+    margin-bottom: 5rem;
   }
 
   table {
@@ -318,7 +318,7 @@
     font-size: 0.85rem;
   }
 
-  /* Botão Flutuante (Mobile & PC) */
+  /* Botão Flutuante */
   .fab-download {
     position: fixed;
     bottom: 2rem;
@@ -534,7 +534,6 @@ function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// Função para baixar apenas os canais ativos em formato M3U
 function downloadActiveM3U() {
   const activeChannels = allChannels.filter(ch => ch.status === 'active');
   
@@ -546,8 +545,13 @@ function downloadActiveM3U() {
   let m3uContent = "#EXTM3U\n";
   activeChannels.forEach(ch => {
     const tvgId = ch.tvg_id ? `tvg-id="${ch.tvg_id}"` : '';
+    const tvgLogo = ch.logo ? `tvg-logo="${ch.logo}"` : '';
     const groupTitle = ch.group ? `group-title="${ch.group}"` : '';
-    m3uContent += `#EXTINF:-1 ${tvgId} ${groupTitle},${ch.name}\n`;
+    
+    // Junta os atributos com espaço
+    const atributos = [tvgId, tvgLogo, groupTitle].filter(Boolean).join(' ');
+    
+    m3uContent += `#EXTINF:-1 ${atributos},${ch.name}\n`;
     m3uContent += `${ch.url}\n`;
   });
 
