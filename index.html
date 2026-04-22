@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPTV Monitor - By MultiHub</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080b10;
+    --surface: #0e1219;
+    --border: #1c2333;
+    --accent: #ff2a2a; /* Vermelho MultiHub */
+    --accent2: #ff4d4d;
+    --green: #00ff88;
+    --red: #ff3b5c;
+    --yellow: #ffb800;
+    --gray: #4a5568;
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255,42,42,0.015) 2px,
+      rgba(255,42,42,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: rgba(8,11,16,0.95);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(255,42,42,0.4);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .logo span { color: var(--text-dim); font-weight: 400; font-size: 0.9rem; }
+
+  .pulse-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .last-check {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+
+  /* Stats bar */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .stat-card:hover { transform: translateY(-2px); }
+  .stat-card.active-filter { border-color: var(--accent); }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-card.all::before { background: var(--accent); }
+  .stat-card.active::before { background: var(--green); }
+  .stat-card.denied::before { background: var(--yellow); }
+  .stat-card.offline::before { background: var(--red); }
+  .stat-card.timeout::before { background: var(--gray); }
+
+  .stat-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .stat-card.all .stat-value { color: var(--accent); }
+  .stat-card.active .stat-value { color: var(--green); }
+  .stat-card.denied .stat-value { color: var(--yellow); }
+  .stat-card.offline .stat-value { color: var(--red); }
+  .stat-card.timeout .stat-value { color: var(--gray); }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .search-box {
+    flex: 1;
+    min-width: 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 1rem;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: var(--text-dim); }
+
+  .count-badge {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* Table */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5rem; /* Espaço para o botão flutuante */
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+
+  thead tr {
+    background: rgba(255,42,42,0.04);
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(28,35,51,0.6);
+    transition: background 0.15s;
+    animation: fadeIn 0.3s ease both;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  tbody tr:hover { background: rgba(255,42,42,0.03); }
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 0.65rem 1rem;
+    vertical-align: middle;
+  }
+
+  .channel-name {
+    font-weight: 600;
+    color: var(--text);
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .channel-url {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .group-tag {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    background: rgba(124,58,237,0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(124,58,237,0.25);
+    white-space: nowrap;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .status-badge.active   { background: rgba(0,255,136,0.1);  color: var(--green);  border: 1px solid rgba(0,255,136,0.2); }
+  .status-badge.denied   { background: rgba(255,184,0,0.1);  color: var(--yellow); border: 1px solid rgba(255,184,0,0.2); }
+  .status-badge.offline  { background: rgba(255,59,92,0.1);  color: var(--red);    border: 1px solid rgba(255,59,92,0.2); }
+  .status-badge.timeout  { background: rgba(74,85,104,0.15); color: var(--gray);   border: 1px solid rgba(74,85,104,0.3); }
+  .status-badge.error    { background: rgba(255,59,92,0.1);  color: var(--red);    border: 1px solid rgba(255,59,92,0.2); }
+  .status-badge.unknown  { background: rgba(74,85,104,0.15); color: var(--gray);   border: 1px solid rgba(74,85,104,0.3); }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .dot.blink { animation: pulse 1.5s infinite; }
+
+  .http-code, .response-time, .expires {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .empty-state {
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--text-dim);
+  }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 1rem; }
+
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 4rem;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    padding: 3rem;
+    text-align: center;
+    color: var(--red);
+    font-size: 0.85rem;
+  }
+
+  /* Botão Flutuante (Mobile & PC) */
+  .fab-download {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 1rem 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(255, 42, 42, 0.4);
+    z-index: 1000;
+    transition: transform 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .fab-download:hover {
+    transform: scale(1.05);
+    background: var(--accent2);
+  }
+
+  @media (max-width: 768px) {
+    .container { padding: 1rem; }
+    th:nth-child(3), td:nth-child(3),
+    th:nth-child(4), td:nth-child(4),
+    th:nth-child(6), td:nth-child(6),
+    th:nth-child(7), td:nth-child(7) { display: none; }
+    .fab-download {
+        bottom: 1.5rem;
+        right: 1.5rem;
+        padding: 0.8rem 1.2rem;
+        font-size: 0.8rem;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="pulse-dot" id="headerDot"></div>
+    MultiHub<span>/IPTV</span>
+  </div>
+  <div class="last-check" id="lastCheck">carregando...</div>
+</header>
+
+<div class="container">
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card all active-filter" data-filter="all" onclick="setFilter('all',this)">
+      <div class="stat-label">Total</div>
+      <div class="stat-value" id="s-total">—</div>
+    </div>
+    <div class="stat-card active" data-filter="active" onclick="setFilter('active',this)">
+      <div class="stat-label">✅ Ativos</div>
+      <div class="stat-value" id="s-active">—</div>
+    </div>
+    <div class="stat-card denied" data-filter="denied" onclick="setFilter('denied',this)">
+      <div class="stat-label">🔐 Negados</div>
+      <div class="stat-value" id="s-denied">—</div>
+    </div>
+    <div class="stat-card offline" data-filter="offline" onclick="setFilter('offline',this)">
+      <div class="stat-label">❌ Offline</div>
+      <div class="stat-value" id="s-offline">—</div>
+    </div>
+    <div class="stat-card timeout" data-filter="timeout" onclick="setFilter('timeout',this)">
+      <div class="stat-label">⏱ Esgotado</div>
+      <div class="stat-value" id="s-timeout">—</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input class="search-box" id="searchInput" type="text" placeholder="Buscar canal..." oninput="renderTable()">
+    <span class="count-badge" id="countBadge"></span>
+  </div>
+
+  <div class="table-wrap">
+    <div class="loading" id="loadingMsg">
+      <div class="spinner"></div> Carregando results.json...
+    </div>
+    <div id="errorMsg" class="error-msg" style="display:none"></div>
+    <table id="mainTable" style="display:none">
+      <thead>
+        <tr>
+          <th>Canal</th>
+          <th>URL</th>
+          <th>Grupo</th>
+          <th>Fonte</th>
+          <th>Status</th>
+          <th>HTTP</th>
+          <th>Resp.</th>
+          <th>Expira</th>
+          <th>Verificado</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="icon">📭</div>
+      <div>Nenhum canal encontrado</div>
+    </div>
+  </div>
+</div>
+
+<button class="fab-download" onclick="downloadActiveM3U()">
+  📥 Baixar Ativos (.m3u)
+</button>
+
+<script>
+let allChannels = [];
+let currentFilter = 'all';
+
+const STATUS_LABELS = {
+  active:   { label: '● Ativo',     cls: 'active',  blink: true  },
+  denied:   { label: '● Negado',    cls: 'denied',  blink: false },
+  offline:  { label: '● Offline',   cls: 'offline', blink: false },
+  timeout:  { label: '● Esgotado',  cls: 'timeout', blink: false },
+  error:    { label: '● Erro',      cls: 'error',   blink: false },
+  unknown:  { label: '● Desconhecido', cls: 'unknown', blink: false },
+};
+
+async function loadData() {
+  try {
+    const res = await fetch('results.json?_=' + Date.now());
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const s = data.stats || {};
+    document.getElementById('s-total').textContent   = s.total   ?? '—';
+    document.getElementById('s-active').textContent  = s.active  ?? '—';
+    document.getElementById('s-denied').textContent  = s.denied  ?? '—';
+    document.getElementById('s-offline').textContent = s.offline ?? '—';
+    document.getElementById('s-timeout').textContent = s.timeout ?? '—';
+
+    if (s.last_check) {
+      const d = new Date(s.last_check);
+      document.getElementById('lastCheck').textContent =
+        'Última verificação: ' + d.toLocaleString('pt-BR');
+    }
+
+    allChannels = data.channels || [];
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('mainTable').style.display  = 'table';
+    renderTable();
+  } catch (e) {
+    document.getElementById('loadingMsg').style.display = 'none';
+    const err = document.getElementById('errorMsg');
+    err.style.display = 'block';
+    err.textContent = '⚠ Não foi possível carregar results.json — ' + e.message;
+  }
+}
+
+function setFilter(filter, el) {
+  currentFilter = filter;
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-filter'));
+  el.classList.add('active-filter');
+  renderTable();
+}
+
+function renderTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const tbody = document.getElementById('tableBody');
+
+  let rows = allChannels.filter(ch => {
+    const matchFilter = currentFilter === 'all' || ch.status === currentFilter;
+    const matchSearch = !q ||
+      ch.name.toLowerCase().includes(q) ||
+      (ch.group || '').toLowerCase().includes(q) ||
+      (ch.url  || '').toLowerCase().includes(q);
+    return matchFilter && matchSearch;
+  });
+
+  document.getElementById('countBadge').textContent =
+    rows.length + ' canal' + (rows.length !== 1 ? 'is' : '');
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '';
+    document.getElementById('emptyState').style.display = 'block';
+    return;
+  }
+  document.getElementById('emptyState').style.display = 'none';
+
+  tbody.innerHTML = rows.map((ch, i) => {
+    const s = STATUS_LABELS[ch.status] || STATUS_LABELS.unknown;
+    const checkedAt = ch.checked_at
+      ? new Date(ch.checked_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : '—';
+    const expires = ch.expires_at
+      ? `<span class="expires">${ch.expires_at}</span>`
+      : '<span style="color:var(--border)">—</span>';
+    const resp = ch.response_time_ms != null
+      ? `<span class="response-time">${ch.response_time_ms}ms</span>`
+      : '<span style="color:var(--border)">—</span>';
+
+    return `<tr style="animation-delay:${Math.min(i * 0.02, 0.5)}s">
+      <td><div class="channel-name" title="${esc(ch.name)}">${esc(ch.name)}</div></td>
+      <td><div class="channel-url" title="${esc(ch.url)}">${esc(ch.url)}</div></td>
+      <td>${ch.group ? `<span class="group-tag">${esc(ch.group)}</span>` : '<span style="color:var(--border)">—</span>'}</td>
+      <td>${ch.source ? `<span class="group-tag" style="background:rgba(255,42,42,0.08);color:var(--accent);border-color:rgba(255,42,42,0.2)">${esc(ch.source)}</span>` : '<span style="color:var(--border)">—</span>'}</td>
+      <td><span class="status-badge ${s.cls}"><span class="dot${s.blink?' blink':''}"></span>${s.label.slice(2)}</span></td>
+      <td><span class="http-code">${ch.http_code ?? '—'}</span></td>
+      <td>${resp}</td>
+      <td>${expires}</td>
+      <td><span style="color:var(--text-dim);font-size:0.7rem">${checkedAt}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Função para baixar apenas os canais ativos em formato M3U
+function downloadActiveM3U() {
+  const activeChannels = allChannels.filter(ch => ch.status === 'active');
+  
+  if (activeChannels.length === 0) {
+    alert("Nenhum canal ativo foi encontrado para baixar.");
+    return;
+  }
+
+  let m3uContent = "#EXTM3U\n";
+  activeChannels.forEach(ch => {
+    const tvgId = ch.tvg_id ? `tvg-id="${ch.tvg_id}"` : '';
+    const groupTitle = ch.group ? `group-title="${ch.group}"` : '';
+    m3uContent += `#EXTINF:-1 ${tvgId} ${groupTitle},${ch.name}\n`;
+    m3uContent += `${ch.url}\n`;
+  });
+
+  const blob = new Blob([m3uContent], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "Ativos_MultiHub.m3u";
+  document.body.appendChild(a);
+  a.click();
+  
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+loadData();
+</script>
+</body>
+</html>
