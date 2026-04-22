@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IPTV Stream Checker - MultiHub
+IPTV Stream Checker - By MultiHub
 Verifica estado e expiração de canais em playlists M3U
 """
 
@@ -18,11 +18,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # ─── Configuração ────────────────────────────────────────────────────────────
 PLAYLIST_URLS = os.environ.get("PLAYLIST_URLS", "").split(",")
 TIMEOUT = int(os.environ.get("CHECK_TIMEOUT", "10"))
-MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "10"))
+MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "15"))
 OUTPUT_FILE = "results.json"
 NOTIFY_WEBHOOK = os.environ.get("NOTIFY_WEBHOOK", "")  # Discord/Slack webhook
 # ──────────────────────────────────────────────────────────────────────────────
-
 
 def fetch_playlist(url: str) -> str | None:
     """Baixa o conteúdo de uma playlist M3U."""
@@ -33,7 +32,6 @@ def fetch_playlist(url: str) -> str | None:
     except Exception as e:
         print(f"[ERRO] Não foi possível baixar a playlist {url}: {e}")
         return None
-
 
 def parse_m3u(content: str, source_url: str = "") -> list[dict]:
     """Lê uma playlist M3U e extrai os canais."""
@@ -53,10 +51,13 @@ def parse_m3u(content: str, source_url: str = "") -> list[dict]:
             name_match = re.search(r',(.+)$', line)
             tvg_id = re.search(r'tvg-id="([^"]*)"', line)
             group = re.search(r'group-title="([^"]*)"', line)
+            logo = re.search(r'tvg-logo="([^"]*)"', line) # Captura a logo
+            
             current_info = {
                 "name": name_match.group(1).strip() if name_match else "Desconhecido",
                 "tvg_id": tvg_id.group(1) if tvg_id else "",
                 "group": group.group(1) if group else "",
+                "logo": logo.group(1) if logo else "", # Salva a logo
                 "source": source_label,
             }
         elif line and not line.startswith("#") and current_info:
@@ -66,7 +67,6 @@ def parse_m3u(content: str, source_url: str = "") -> list[dict]:
 
     return channels
 
-
 def check_stream(channel: dict) -> dict:
     """Verifica o estado de um stream individual."""
     url = channel.get("url", "")
@@ -75,6 +75,7 @@ def check_stream(channel: dict) -> dict:
         "url": url,
         "group": channel.get("group", ""),
         "tvg_id": channel.get("tvg_id", ""),
+        "logo": channel.get("logo", ""), # Adiciona a logo no resultado
         "source": channel.get("source", ""),
         "status": "unknown",
         "http_code": None,
@@ -139,7 +140,6 @@ def check_stream(channel: dict) -> dict:
 
     return result
 
-
 def send_notification(webhook_url: str, fallen: list[dict]) -> None:
     """Envia notificação ao Discord ou Slack com canais offline."""
     if not webhook_url or not fallen:
@@ -163,7 +163,6 @@ def send_notification(webhook_url: str, fallen: list[dict]) -> None:
         print("[OK] Notificação enviada")
     except Exception as e:
         print(f"[AVISO] Não foi possível enviar notificação: {e}")
-
 
 def main():
     if not any(PLAYLIST_URLS):
@@ -229,7 +228,6 @@ def main():
 
     if stats["active"] == 0:
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
