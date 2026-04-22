@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 IPTV Stream Checker - By MultiHub
-Verifica estado e expiração de canais em playlists M3U
+Verifica estado e expiração de canais em playlists M3U, remove duplicados e organiza em categorias.
 """
 
 import re
@@ -22,6 +22,30 @@ MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "15"))
 OUTPUT_FILE = "results.json"
 NOTIFY_WEBHOOK = os.environ.get("NOTIFY_WEBHOOK", "")  # Discord/Slack webhook
 # ──────────────────────────────────────────────────────────────────────────────
+
+def categorize_channel(name: str, original_group: str) -> str:
+    """Categoriza o canal baseado em palavras-chave no nome ou no grupo original."""
+    text = f"{name} {original_group}".upper()
+    
+    if any(kw in text for kw in ["SÉRIE", "SERIE", "EPISÓDIO", "TEMPORADA"]):
+        return "Séries"
+    elif any(kw in text for kw in ["FILME", "VOD", "CINEMA", "4K", "LANCAMENTO", "LANÇAMENTO", "TELECINE", "HBO", "MAX", "PRIME"]):
+        return "Filmes"
+    elif any(kw in text for kw in ["ESPORTE", "SPORT", "ESPN", "PREMIERE", "COMBATE", "FUTEBOL", "DAZN", "F1", "UFC", "GOL", "BANDSPORTS", "ARENA"]):
+        return "Esportes"
+    elif any(kw in text for kw in ["INFANTIL", "KIDS", "DISNEY", "CARTOON", "NICKELODEON", "GLOOB", "BOOMERANG"]):
+        return "Infantil e Desenhos"
+    elif any(kw in text for kw in ["NOTÍCIA", "NOTICIA", "NEWS", "JORNAL", "CNN", "BANDNEWS"]):
+        return "Notícias"
+    elif any(kw in text for kw in ["DOCUMENTÁRIO", "DOCUMENTARIO", "DISCOVERY", "HISTORY", "NAT GEO", "ANIMAL"]):
+        return "Documentários"
+    elif any(kw in text for kw in ["GLOBO", "SBT", "RECORD", "BAND", "REDE", "CULTURA", "GAZETA", "ABERTO"]):
+        return "Canais Abertos"
+    
+    # Se não encontrar palavra-chave, usa o grupo original ou define como "Outros"
+    if not original_group or original_group.strip() == "":
+        return "Outros"
+    return original_group.strip()
 
 def fetch_playlist(url: str) -> str | None:
     """Baixa o conteúdo de uma playlist M3U."""
@@ -50,14 +74,20 @@ def parse_m3u(content: str, source_url: str = "") -> list[dict]:
         if line.startswith("#EXTINF"):
             name_match = re.search(r',(.+)$', line)
             tvg_id = re.search(r'tvg-id="([^"]*)"', line)
-            group = re.search(r'group-title="([^"]*)"', line)
-            logo = re.search(r'tvg-logo="([^"]*)"', line) # Captura a logo
+            group_match = re.search(r'group-title="([^"]*)"', line)
+            logo = re.search(r'tvg-logo="([^"]*)"', line)
+            
+            raw_name = name_match.group(1).strip() if name_match else "Desconhecido"
+            raw_group = group_match.group(1).strip() if group_match else ""
+            
+            # Aplica a categoria inteligente
+            clean_group = categorize_channel(raw_name, raw_group)
             
             current_info = {
-                "name": name_match.group(1).strip() if name_match else "Desconhecido",
+                "name": raw_name,
                 "tvg_id": tvg_id.group(1) if tvg_id else "",
-                "group": group.group(1) if group else "",
-                "logo": logo.group(1) if logo else "", # Salva a logo
+                "group": clean_group,
+                "logo": logo.group(1) if logo else "",
                 "source": source_label,
             }
         elif line and not line.startswith("#") and current_info:
@@ -75,7 +105,7 @@ def check_stream(channel: dict) -> dict:
         "url": url,
         "group": channel.get("group", ""),
         "tvg_id": channel.get("tvg_id", ""),
-        "logo": channel.get("logo", ""), # Adiciona a logo no resultado
+        "logo": channel.get("logo", ""),
         "source": channel.get("source", ""),
         "status": "unknown",
         "http_code": None,
@@ -140,30 +170,6 @@ def check_stream(channel: dict) -> dict:
 
     return result
 
-def send_notification(webhook_url: str, fallen: list[dict]) -> None:
-    """Envia notificação ao Discord ou Slack com canais offline."""
-    if not webhook_url or not fallen:
-        return
-
-    lines = [f"🔴 *{c['name']}* — {c['error']}" for c in fallen[:20]]
-    message = f"⚠️ *IPTV Checker* — {len(fallen)} canal(is) sem acesso\n" + "\n".join(lines)
-
-    if "discord" in webhook_url:
-        payload = json.dumps({"content": message}).encode()
-    else:
-        payload = json.dumps({"text": message}).encode()
-
-    try:
-        req = urllib.request.Request(
-            webhook_url,
-            data=payload,
-            headers={"Content-Type": "application/json"},
-        )
-        urllib.request.urlopen(req, timeout=10)
-        print("[OK] Notificação enviada")
-    except Exception as e:
-        print(f"[AVISO] Não foi possível enviar notificação: {e}")
-
 def main():
     if not any(PLAYLIST_URLS):
         print("[ERRO] Defina PLAYLIST_URLS como variável de ambiente.")
@@ -178,12 +184,26 @@ def main():
         content = fetch_playlist(url)
         if content:
             channels = parse_m3u(content, url)
-            print(f"   → {len(channels)} canais encontrados")
             all_channels.extend(channels)
 
     if not all_channels:
-        print("[ERRO] Nenhum canal foi encontrado.")
+        print("[ERRO] Nenhum canal foi encontrado nas playlists.")
         sys.exit(1)
+
+    # ─── Filtro Anti-Duplicação por URL ───────────────────────────────────────
+    unique_urls = set()
+    unique_channels = []
+    for ch in all_channels:
+        stream_url = ch.get("url", "")
+        if stream_url and stream_url not in unique_urls:
+            unique_urls.add(stream_url)
+            unique_channels.append(ch)
+            
+    print(f"   → {len(all_channels)} canais totais encontrados.")
+    print(f"   → {len(unique_channels)} canais únicos após remover duplicados.")
+    
+    all_channels = unique_channels
+    # ──────────────────────────────────────────────────────────────────────────
 
     print(f"\n🔍 Verificando {len(all_channels)} canais com {MAX_WORKERS} workers...\n")
     results = []
@@ -215,16 +235,12 @@ def main():
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
 
-    print(f"\n📊 Resultados:")
+    print(f"\n📊 Resultados Finais:")
     print(f"   ✅ Ativos   : {stats['active']}")
     print(f"   🔐 Negados  : {stats['denied']}")
     print(f"   ❌ Offline  : {stats['offline']}")
     print(f"   ⏱️  Esgotado : {stats['timeout']}")
     print(f"\n💾 Salvo em {OUTPUT_FILE}")
-
-    fallen = [r for r in results if r["status"] in ("denied", "offline", "error")]
-    if NOTIFY_WEBHOOK and fallen:
-        send_notification(NOTIFY_WEBHOOK, fallen)
 
     if stats["active"] == 0:
         sys.exit(1)
