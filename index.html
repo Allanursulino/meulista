@@ -30,7 +30,6 @@
     overflow-x: hidden;
   }
 
-  /* Scanline overlay */
   body::before {
     content: '';
     position: fixed;
@@ -86,14 +85,10 @@
     50% { opacity: 0.4; transform: scale(0.8); }
   }
 
-  .last-check {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-  }
+  .last-check { font-size: 0.7rem; color: var(--text-dim); }
 
   .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
 
-  /* Stats bar */
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -149,7 +144,6 @@
   .stat-card.offline .stat-value { color: var(--red); }
   .stat-card.timeout .stat-value { color: var(--gray); }
 
-  /* Toolbar */
   .toolbar {
     display: flex;
     gap: 1rem;
@@ -175,13 +169,8 @@
   .search-box:focus { border-color: var(--accent); }
   .search-box::placeholder { color: var(--text-dim); }
 
-  .count-badge {
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    white-space: nowrap;
-  }
+  .count-badge { font-size: 0.75rem; color: var(--text-dim); white-space: nowrap; }
 
-  /* Table */
   .table-wrap {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -190,17 +179,8 @@
     margin-bottom: 5rem;
   }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.8rem;
-  }
-
-  thead tr {
-    background: rgba(255,42,42,0.04);
-    border-bottom: 1px solid var(--border);
-  }
-
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  thead tr { background: rgba(255,42,42,0.04); border-bottom: 1px solid var(--border); }
   th {
     padding: 0.75rem 1rem;
     text-align: left;
@@ -225,29 +205,11 @@
   tbody tr:hover { background: rgba(255,42,42,0.03); }
   tbody tr:last-child { border-bottom: none; }
 
-  td {
-    padding: 0.65rem 1rem;
-    vertical-align: middle;
-  }
+  td { padding: 0.65rem 1rem; vertical-align: middle; }
 
-  .channel-name {
-    font-weight: 600;
-    color: var(--text);
-    max-width: 220px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .channel-url {
-    color: var(--text-dim);
-    font-size: 0.7rem;
-    max-width: 280px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
+  .channel-name { font-weight: 600; color: var(--text); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .channel-url { color: var(--text-dim); font-size: 0.7rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  
   .group-tag {
     display: inline-block;
     padding: 0.15rem 0.5rem;
@@ -280,16 +242,9 @@
   .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
   .dot.blink { animation: pulse 1.5s infinite; }
 
-  .http-code, .response-time, .expires {
-    font-size: 0.75rem;
-    color: var(--text-dim);
-  }
+  .http-code, .response-time, .expires { font-size: 0.75rem; color: var(--text-dim); }
 
-  .empty-state {
-    padding: 4rem 2rem;
-    text-align: center;
-    color: var(--text-dim);
-  }
+  .empty-state { padding: 4rem 2rem; text-align: center; color: var(--text-dim); }
   .empty-state .icon { font-size: 2.5rem; margin-bottom: 1rem; }
 
   .loading {
@@ -311,12 +266,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .error-msg {
-    padding: 3rem;
-    text-align: center;
-    color: var(--red);
-    font-size: 0.85rem;
-  }
+  .error-msg { padding: 3rem; text-align: center; color: var(--red); font-size: 0.85rem; }
 
   /* Botão Flutuante */
   .fab-download {
@@ -339,10 +289,7 @@
     align-items: center;
     gap: 0.5rem;
   }
-  .fab-download:hover {
-    transform: scale(1.05);
-    background: var(--accent2);
-  }
+  .fab-download:hover { transform: scale(1.05); background: var(--accent2); }
 
   @media (max-width: 768px) {
     .container { padding: 1rem; }
@@ -350,12 +297,7 @@
     th:nth-child(4), td:nth-child(4),
     th:nth-child(6), td:nth-child(6),
     th:nth-child(7), td:nth-child(7) { display: none; }
-    .fab-download {
-        bottom: 1.5rem;
-        right: 1.5rem;
-        padding: 0.8rem 1.2rem;
-        font-size: 0.8rem;
-    }
+    .fab-download { bottom: 1.5rem; right: 1.5rem; padding: 0.8rem 1.2rem; font-size: 0.8rem; }
   }
 </style>
 </head>
@@ -372,7 +314,7 @@
 <div class="container">
   <div class="stats-grid" id="statsGrid">
     <div class="stat-card all active-filter" data-filter="all" onclick="setFilter('all',this)">
-      <div class="stat-label">Total</div>
+      <div class="stat-label">Total Únicos</div>
       <div class="stat-value" id="s-total">—</div>
     </div>
     <div class="stat-card active" data-filter="active" onclick="setFilter('active',this)">
@@ -394,7 +336,7 @@
   </div>
 
   <div class="toolbar">
-    <input class="search-box" id="searchInput" type="text" placeholder="Buscar canal..." oninput="renderTable()">
+    <input class="search-box" id="searchInput" type="text" placeholder="Buscar canal ou categoria..." oninput="renderTable()">
     <span class="count-badge" id="countBadge"></span>
   </div>
 
@@ -408,7 +350,7 @@
         <tr>
           <th>Canal</th>
           <th>URL</th>
-          <th>Grupo</th>
+          <th>Categoria</th>
           <th>Fonte</th>
           <th>Status</th>
           <th>HTTP</th>
@@ -495,7 +437,7 @@ function renderTable() {
   });
 
   document.getElementById('countBadge').textContent =
-    rows.length + ' canal' + (rows.length !== 1 ? 'is' : '');
+    rows.length + ' canal(is)';
 
   if (rows.length === 0) {
     tbody.innerHTML = '';
@@ -535,6 +477,7 @@ function esc(s) {
 }
 
 function downloadActiveM3U() {
+  // Filtra apenas os canais ativos
   const activeChannels = allChannels.filter(ch => ch.status === 'active');
   
   if (activeChannels.length === 0) {
@@ -542,19 +485,30 @@ function downloadActiveM3U() {
     return;
   }
 
+  // Ordena a lista primeiro por Categoria (Grupo) e depois pelo Nome do Canal
+  activeChannels.sort((a, b) => {
+    const groupA = (a.group || "").toLowerCase();
+    const groupB = (b.group || "").toLowerCase();
+    if (groupA < groupB) return -1;
+    if (groupA > groupB) return 1;
+    
+    return (a.name || "").localeCompare(b.name || "");
+  });
+
   let m3uContent = "#EXTM3U\n";
   activeChannels.forEach(ch => {
     const tvgId = ch.tvg_id ? `tvg-id="${ch.tvg_id}"` : '';
     const tvgLogo = ch.logo ? `tvg-logo="${ch.logo}"` : '';
     const groupTitle = ch.group ? `group-title="${ch.group}"` : '';
     
-    // Junta os atributos com espaço
+    // Junta os atributos com espaço e evita espaços extras
     const atributos = [tvgId, tvgLogo, groupTitle].filter(Boolean).join(' ');
     
     m3uContent += `#EXTINF:-1 ${atributos},${ch.name}\n`;
     m3uContent += `${ch.url}\n`;
   });
 
+  // Cria o arquivo para download
   const blob = new Blob([m3uContent], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   
